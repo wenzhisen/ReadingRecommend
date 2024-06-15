@@ -5,7 +5,6 @@ from flask import Flask, request, jsonify, url_for, send_from_directory, redirec
 from flask_cors import *
 import json
 from globals import *
-# from utils import *
 import datetime
 import jwt
 import hashlib
@@ -16,43 +15,12 @@ app.config['JSONIFY_MIMETYPE'] = "application/json;charset=utf-8"
 # 处理跨域，在任何条件下都能访问
 CORS(app, resources=r'/*')
 SECRET_KEY = "your_secret_key_here"
-users = {
-    "000000": "password123"
-}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 ExpiredSignatureError = 1
 InvalidTokenError = 2
-
-def allowed_file(filename):
-    return '.' in filename and \
-        filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
-
-
-def get_suffix(filename):
-    print(filename)
-    return filename.rsplit('.', 1)[1]
-
-
-def generate_char_id():
-    m2 = hashlib.md5()
-    m2.update(str(time.time()).encode('utf-8'))
-
-    return m2.hexdigest()[8:-8]
-
-def load_txt(file_name):
-    pass
-
-
-def load_pdf(file_name):
-    pass
-
-
-def load_file(file_name):
-    pass
-
 
 def decode_auth_token(request_):
     """
@@ -69,20 +37,6 @@ def decode_auth_token(request_):
         return ExpiredSignatureError  # token过期
     except Exception as e:
         return InvalidTokenError  # token无效
-
-
-# @app.route('/agent', methods=["POST", "GET"])
-def agent():
-    data = request.get_data()
-    data = json.loads(data)
-    data = data["body"]
-    data = json.loads(data)
-    data = data['history']
-    input = data[-1]["text"]
-    data.pop()
-    response = "这是一个测试接口，你可以在这里测试你的对话模型。"
-    return response
-
 
 # 聊天接口
 @app.route('/chat', methods=["POST"])
@@ -106,22 +60,6 @@ def chat():
     sid2history[session_id].add({"role": "ai", "text": response})
     return jsonify({"answer": response}), 200
 
-
-# 新建对话
-@app.route('/new_session', methods=["GET"])
-def new_session():
-    auth = decode_auth_token(request)
-    if auth == ExpiredSignatureError:
-        return jsonify({'message': "无效Token，请重新登陆"}), 401
-    if auth == InvalidTokenError:
-        return jsonify({'message': "无效Token，请重新登陆"}), 401
-
-    new_session_id = generate_char_id()
-    all_sessions_id.append(new_session_id)
-    sid2history[new_session_id] = ChatHistory()
-    return jsonify({"session_id": new_session_id})
-
-
 # 返回所有SessionID
 @app.route('/all_session_id', methods=["GET"])
 def get_all_session_id():
@@ -138,37 +76,6 @@ def get_all_session_id():
             a = sid2history[sid].history[0]["text"]
         res.append({"SessionId": sid, "first_msg": a})
     return res
-
-
-@app.route("/get_history", methods=["GET"])
-def get_history():
-    auth = decode_auth_token(request)
-    if auth == ExpiredSignatureError:
-        return jsonify({'message': "无效Token，请重新登陆"}), 401
-    if auth == InvalidTokenError:
-        return jsonify({'message': "无效Token，请重新登陆"}), 401
-
-    session_id = request.args.get("SessionId")
-    if session_id not in all_sessions_id:
-        return jsonify({"Error": "SessionId不存在"}), 401  # 找不到数据
-    history = sid2history[session_id].history
-    return jsonify(history)
-
-
-@app.route("/clear", methods=["POST", "GET"])
-def clear():
-    auth = decode_auth_token(request)
-    if auth == ExpiredSignatureError:
-        return jsonify({'message': "无效Token，请重新登陆"}), 401
-    if auth == InvalidTokenError:
-        return jsonify({'message': "无效Token，请重新登陆"}), 401
-
-    sid2history.clear()
-    all_sessions_id.clear()
-    all_sessions_id.append("for_testing")  # for testing
-    sid2history["for_testing"] = ChatHistory()
-    sid2history["for_testing"].add({"role": "ai", "text": "你好，我是图书推荐机器人，你可以问我关于图书的问题。"})
-    return jsonify({"msg": "清空成功"})
 
 
 @app.route('/upload_file', methods=['POST'])
@@ -195,17 +102,6 @@ def upload_file():
         return jsonify({"file_url": file_url})
     else:
         return jsonify({"msg": "文件格式不支持"}), 400
-
-
-@app.route('/get_file/<filename>', methods=['GET'])
-def get_file(filename):
-    auth = decode_auth_token(request)
-    if auth == ExpiredSignatureError:
-        return jsonify({'message': "无效Token，请重新登陆"}), 401
-    if auth == InvalidTokenError:
-        return jsonify({'message': "无效Token，请重新登陆"}), 401
-
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
 @app.route('/login', methods=['POST'])
